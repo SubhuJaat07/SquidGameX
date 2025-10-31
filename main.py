@@ -9,53 +9,60 @@ CHAT_ID = "6179725591"
 BLOCKED = {}
 
 def send(msg):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {
+        'chat_id': CHAT_ID,
+        'text': msg
+    }
     try:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={msg}")
-    except:
-        pass
+        requests.post(url, data=payload, timeout=10)
+    except Exception as e:
+        print(f"Send failed: {e}")
 
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'POST':
-        update = request.get_json()
-        if 'message' in update:
-            msg = update['message']
-            if str(msg['chat']['id']) == CHAT_ID:
-                text = msg.get('text', '').strip()
-                parts = text.split()
+        try:
+            update = request.get_json()
+            if 'message' in update:
+                msg = update['message']
+                if str(msg['chat']['id']) == CHAT_ID:
+                    text = msg.get('text', '').strip()
+                    parts = text.split()
 
-                if parts[0] == '/add' and len(parts) >= 2:
-                    id = parts[1]
-                    custom = ' '.join(parts[2:]) if len(parts) > 2 else "Banned"
-                    BLOCKED[id] = {'perm': True, 'msg': custom}
-                    send(f"Banned: {id}\nMsg: {custom}")
+                    if parts[0] == '/add' and len(parts) >= 2:
+                        id = parts[1]
+                        custom = ' '.join(parts[2:]) if len(parts) > 2 else "Banned"
+                        BLOCKED[id] = {'perm': True, 'msg': custom}
+                        send(f"Banned: {id}\nMsg: {custom}")
 
-                elif parts[0] == '/tempban' and len(parts) >= 3:
-                    id, mins = parts[1], parts[2]
-                    custom = ' '.join(parts[3:]) if len(parts) > 3 else "Temp ban"
-                    expire = time.time() + (int(mins) * 60)
-                    BLOCKED[id] = {'perm': False, 'msg': custom, 'expire': expire}
-                    send(f"Temp Banned: {id} for {mins}m")
+                    elif parts[0] == '/tempban' and len(parts) >= 3:
+                        id, mins = parts[1], parts[2]
+                        custom = ' '.join(parts[3:]) if len(parts) > 3 else "Temp ban"
+                        expire = time.time() + (int(mins) * 60)
+                        BLOCKED[id] = {'perm': False, 'msg': custom, 'expire': expire}
+                        send(f"Temp Banned: {id} for {mins}m")
 
-                elif parts[0] == '/remove' and len(parts) >= 2:
-                    BLOCKED.pop(parts[1], None)
-                    send(f"Unbanned: {parts[1]}")
+                    elif parts[0] == '/remove' and len(parts) >= 2:
+                        BLOCKED.pop(parts[1], None)
+                        send(f"Unbanned: {parts[1]}")
 
-                elif text == '/list':
-                    if not BLOCKED:
-                        send("No one blocked.")
-                    else:
-                        res = "BLOCKED:\n"
-                        for i, (id, data) in enumerate(BLOCKED.items(), 1):
-                            if data['perm'] or time.time() < data['expire']:
-                                t = "[PERM]" if data['perm'] else f"[{int((data['expire'] - time.time())/60)}m]"
-                                res += f"{i}. {id} {t}\n   ↳ {data['msg']}\n"
-                        send(res)
+                    elif text == '/list':
+                        if not BLOCKED:
+                            send("No one blocked.")
+                        else:
+                            res = "BLOCKED:\n"
+                            for i, (id, data) in enumerate(BLOCKED.items(), 1):
+                                if data['perm'] or time.time() < data['expire']:
+                                    t = "[PERM]" if data['perm'] else f"[{int((data['expire'] - time.time())/60)}m]"
+                                    res += f"{i}. {id} {t}\n   ↳ {data['msg']}\n"
+                            send(res)
 
-                elif text == '/clear':
-                    BLOCKED.clear()
-                    send("All cleared!")
-
+                    elif text == '/clear':
+                        BLOCKED.clear()
+                        send("All cleared!")
+        except Exception as e:
+            print(f"Error: {e}")
     return "OK", 200
 
 @app.route('/check/<user_id>')
