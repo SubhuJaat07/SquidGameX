@@ -9,7 +9,10 @@ CHAT_ID = "6179725591"
 BLOCKED = {}
 
 def send(msg):
-    requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={msg}")
+    try:
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={msg}")
+    except:
+        pass
 
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
@@ -19,17 +22,17 @@ def webhook():
             msg = update['message']
             if str(msg['chat']['id']) == CHAT_ID:
                 text = msg.get('text', '').strip()
-                parts = text.split(' ', 3)
+                parts = text.split()
 
                 if parts[0] == '/add' and len(parts) >= 2:
                     id = parts[1]
-                    custom = parts[2] if len(parts) > 2 else "Banned"
+                    custom = ' '.join(parts[2:]) if len(parts) > 2 else "Banned"
                     BLOCKED[id] = {'perm': True, 'msg': custom}
                     send(f"Banned: {id}\nMsg: {custom}")
 
                 elif parts[0] == '/tempban' and len(parts) >= 3:
                     id, mins = parts[1], parts[2]
-                    custom = parts[3] if len(parts) > 3 else "Temp ban"
+                    custom = ' '.join(parts[3:]) if len(parts) > 3 else "Temp ban"
                     expire = time.time() + (int(mins) * 60)
                     BLOCKED[id] = {'perm': False, 'msg': custom, 'expire': expire}
                     send(f"Temp Banned: {id} for {mins}m")
@@ -54,6 +57,13 @@ def webhook():
                     send("All cleared!")
 
     return "OK", 200
+
+@app.route('/check/<user_id>')
+def check(user_id):
+    data = BLOCKED.get(user_id, {})
+    if data.get('perm') or (not data.get('perm') and time.time() < data.get('expire', 0)):
+        return "true"
+    return "false"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
