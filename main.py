@@ -205,5 +205,14 @@ def track(user_id, username, display):
     save_users(USERS)
     return "OK"
 
+# === /reason API (CUSTOM KICK MESSAGE) ===
+@app.route('/reason/<user_id>')
+def get_reason(user_id):
+    cleanup_expired()
+    data = BLOCKED.get(user_id, {})
+    if data and (data.get('perm') or time.time() < data.get('expire', 0)):
+        return data.get('msg', 'Banned by Subhu Jaat')
+    return ""
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
